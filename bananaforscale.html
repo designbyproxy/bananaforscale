@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>bananaforscale 🍌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --banana: #FFE135;
+    --banana-dark: #F5C100;
+    --brown: #3B1F00;
+    --cream: #FFFBEF;
+    --peel: #FF9900;
+    --text: #2D1600;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 40px,
+      rgba(255, 225, 53, 0.07) 40px,
+      rgba(255, 225, 53, 0.07) 80px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 28px;
+    animation: dropIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes dropIn {
+    from { transform: translateY(-40px) rotate(-3deg); opacity: 0; }
+    to { transform: translateY(0) rotate(0deg); opacity: 1; }
+  }
+
+  .logo {
+    font-family: 'Boogaloo', cursive;
+    font-size: clamp(2.6rem, 7vw, 4.2rem);
+    color: var(--brown);
+    line-height: 1;
+    letter-spacing: -1px;
+    display: inline-block;
+  }
+
+  .logo .accent { color: var(--banana-dark); text-shadow: 3px 3px 0 var(--brown); }
+  .logo .banana-icon {
+    display: inline-block;
+    animation: wobble 2.2s ease-in-out infinite;
+    transform-origin: bottom center;
+  }
+  @keyframes wobble {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+  }
+
+  .tagline {
+    font-size: 0.85rem;
+    color: #9B7820;
+    font-weight: 700;
+    margin-top: 6px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .card {
+    background: white;
+    border-radius: 20px;
+    border: 3px solid var(--brown);
+    box-shadow: 6px 6px 0 var(--brown);
+    padding: 22px;
+    margin-bottom: 18px;
+    animation: slideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  @media (max-width: 560px) { .form-row { grid-template-columns: 1fr; } }
+
+  .field label {
+    display: block;
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brown);
+    margin-bottom: 7px;
+  }
+
+  .field input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 2.5px solid var(--brown);
+    border-radius: 11px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    background: var(--cream);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus {
+    border-color: var(--banana-dark);
+    box-shadow: 0 0 0 3px rgba(245, 193, 0, 0.3);
+  }
+
+  .scale-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+  .scale-row label {
+    font-weight: 800;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--brown);
+    white-space: nowrap;
+  }
+  .scale-select {
+    flex: 1;
+    padding: 11px 36px 11px 14px;
+    border: 2.5px solid var(--brown);
+    border-radius: 11px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    background: var(--cream);
+    color: var(--text);
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%233B1F00' stroke-width='2.2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+  }
+
+  .go-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--banana);
+    border: 3px solid var(--brown);
+    border-radius: 13px;
+    font-family: 'Boogaloo', cursive;
+    font-size: 1.5rem;
+    color: var(--brown);
+    cursor: pointer;
+    box-shadow: 4px 4px 0 var(--brown);
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 0.04em;
+  }
+  .go-btn:hover { transform: translate(-2px,-2px); box-shadow: 6px 6px 0 var(--brown); }
+  .go-btn:active { transform: translate(2px,2px); box-shadow: 2px 2px 0 var(--brown); }
+  .go-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: 4px 4px 0 var(--brown); }
+
+  .status {
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #8B6914;
+    padding: 10px;
+    display: none;
+  }
+  .status.show { display: block; }
+
+  .error-msg {
+    background: #FFE8E8;
+    border: 2.5px solid #CC3333;
+    color: #CC3333;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: none;
+    margin-top: 12px;
+  }
+  .error-msg.show { display: block; }
+
+  .result-card {
+    background: var(--banana);
+    border: 3px solid var(--brown);
+    box-shadow: 6px 6px 0 var(--brown);
+    border-radius: 20px;
+    padding: 22px 28px;
+    text-align: center;
+    display: none;
+  }
+  .result-card.show {
+    display: block;
+    animation: popIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes popIn {
+    from { transform: scale(0.75); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .result-number {
+    font-family: 'Boogaloo', cursive;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    color: var(--brown);
+    line-height: 1.1;
+  }
+  .banana-trail {
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+    margin: 8px 0 4px;
+  }
+  .result-unit {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #5C3800;
+  }
+  .result-meta {
+    font-size: 0.8rem;
+    color: #7A5200;
+    margin-top: 8px;
+    font-weight: 600;
+  }
+
+  #map {
+    width: 100%;
+    height: 400px;
+    border-radius: 16px;
+    border: 3px solid var(--brown);
+  }
+
+  .map-card {
+    padding: 0;
+    overflow: hidden;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <span class="banana-icon">🍌</span> banana<span class="accent">forscale</span>
+    </div>
+    <div class="tagline">Because meters are deeply, profoundly boring</div>
+  </header>
+
+  <div class="card" style="animation-delay:0.05s">
+    <div class="form-row">
+      <div class="field">
+        <label>📍 From</label>
+        <input type="text" id="from" placeholder="e.g. Portland, OR" value="Portland, OR"/>
+      </div>
+      <div class="field">
+        <label>🏁 To</label>
+        <input type="text" id="to" placeholder="e.g. Seattle, WA" value="Seattle, WA"/>
+      </div>
+    </div>
+
+    <div class="scale-row">
+      <label>📏 Measure in</label>
+      <select class="scale-select" id="unit">
+        <option value="0.1778">🍌 Bananas (7 inches)</option>
+        <option value="5.5">🦒 Giraffes (18 ft)</option>
+        <option value="11.9">🚌 School Buses (39 ft)</option>
+        <option value="30">🐳 Blue Whales (98 ft)</option>
+        <option value="91.44">🏈 Football Fields (100 yd)</option>
+        <option value="12.3">🦕 T-Rexes (40 ft)</option>
+        <option value="330">🗼 Eiffel Towers (1,083 ft)</option>
+        <option value="0.03">🐜 Ants (1.2 mm)</option>
+        <option value="8.83">🚗 Sedans (29 ft)</option>
+        <option value="2.44">🛏️ King Size Beds (8 ft)</option>
+        <option value="0.0254">📏 Inches (1 inch)</option>
+        <option value="1.8">🧍 Average Human (5'11")</option>
+        <option value="0.305">🦶 Feet (12 inches)</option>
+      </select>
+    </div>
+
+    <button class="go-btn" id="goBtn" onclick="getRoute()">🍌 Scale It!</button>
+    <div class="status" id="status">Calculating your absurd distance...</div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-number" id="resultNum">—</div>
+    <div class="banana-trail" id="bananasViz"></div>
+    <div class="result-unit" id="resultUnit"></div>
+    <div class="result-meta" id="resultMeta"></div>
+  </div>
+
+  <div class="card map-card" style="animation-delay:0.15s">
+    <div id="map"></div>
+  </div>
+
+</div>
+
+<script>
+const map = L.map('map').setView([45.5051, -122.6750], 7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+
+let routeLayer = null;
+let markersLayer = L.layerGroup().addTo(map);
+
+const unitMeta = {
+  '0.1778': { name: 'bananas', emoji: '🍌' },
+  '5.5':    { name: 'giraffes', emoji: '🦒' },
+  '11.9':   { name: 'school buses', emoji: '🚌' },
+  '30':     { name: 'blue whales', emoji: '🐳' },
+  '91.44':  { name: 'football fields', emoji: '🏈' },
+  '12.3':   { name: 'T-Rexes', emoji: '🦕' },
+  '330':    { name: 'Eiffel Towers', emoji: '🗼' },
+  '0.03':   { name: 'ants', emoji: '🐜' },
+  '8.83':   { name: 'sedans', emoji: '🚗' },
+  '2.44':   { name: 'king size beds', emoji: '🛏️' },
+  '0.0254': { name: 'inches', emoji: '📏' },
+  '1.8':    { name: 'average humans', emoji: '🧍' },
+  '0.305':  { name: 'feet', emoji: '🦶' },
+};
+
+function showStatus(msg) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideStatus() { document.getElementById('status').classList.remove('show'); }
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
+
+async function geocode(q) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'bananaforscale/1.0' } });
+  const data = await res.json();
+  if (!data.length) throw new Error(`Couldn't find "${q}" — try being more specific.`);
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+}
+
+async function getRoute() {
+  hideError();
+  hideStatus();
+  document.getElementById('resultCard').classList.remove('show');
+
+  const fromVal = document.getElementById('from').value.trim();
+  const toVal   = document.getElementById('to').value.trim();
+  if (!fromVal || !toVal) { showError('Please enter both a start and end location!'); return; }
+
+  const btn = document.getElementById('goBtn');
+  btn.disabled = true;
+
+  try {
+    showStatus('📍 Looking up your locations...');
+    const [origin, dest] = await Promise.all([geocode(fromVal), geocode(toVal)]);
+
+    showStatus('🗺️ Fetching the route...');
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${dest.lng},${dest.lat}?overview=full&geometries=geojson`;
+    const routeRes = await fetch(osrmUrl);
+    const routeData = await routeRes.json();
+
+    if (routeData.code !== 'Ok') throw new Error('No driving route found between those locations.');
+
+    const route = routeData.routes[0];
+    const distMeters = route.distance;
+    const durationSecs = route.duration;
+    const coords = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+
+    // Draw route
+    if (routeLayer) map.removeLayer(routeLayer);
+    routeLayer = L.polyline(coords, { color: '#F5C100', weight: 6, opacity: 0.9 }).addTo(map);
+
+    markersLayer.clearLayers();
+
+    const pinIcon = emoji => L.divIcon({
+      html: `<div style="font-size:30px;filter:drop-shadow(2px 2px 0 rgba(0,0,0,0.4));line-height:1">${emoji}</div>`,
+      className: '',
+      iconAnchor: [15, 30]
+    });
+    L.marker([origin.lat, origin.lng], { icon: pinIcon('📍') })
+      .bindPopup(`<b>From:</b> ${fromVal}`).addTo(markersLayer);
+    L.marker([dest.lat, dest.lng], { icon: pinIcon('🏁') })
+      .bindPopup(`<b>To:</b> ${toVal}`).addTo(markersLayer);
+
+    map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+    // Unit math
+    const unitKey = document.getElementById('unit').value;
+    const unit = unitMeta[unitKey];
+    const count = distMeters / parseFloat(unitKey);
+    const countFmt = count >= 1000
+      ? count.toLocaleString(undefined, { maximumFractionDigits: 0 })
+      : count.toLocaleString(undefined, { maximumFractionDigits: 1 });
+
+    const totalMins = Math.round(durationSecs / 60);
+    const hours = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${totalMins} min`;
+    const km = (distMeters / 1000).toFixed(1);
+
+    document.getElementById('resultNum').textContent = `${countFmt} ${unit.emoji}`;
+
+    const trailCount = Math.min(16, Math.max(1, Math.round(count / Math.max(count / 14, 1))));
+    document.getElementById('bananasViz').textContent = unit.emoji.repeat(trailCount) + ' …';
+
+    document.getElementById('resultUnit').textContent = `${unit.name} long`;
+    document.getElementById('resultMeta').textContent = `${km} km · ~${durationStr} drive · ${fromVal} → ${toVal}`;
+    document.getElementById('resultCard').classList.add('show');
+
+  } catch (err) {
+    showError('❌ ' + err.message);
+  } finally {
+    hideStatus();
+    btn.disabled = false;
+  }
+}
+
+// Enter key
+document.querySelectorAll('input').forEach(el => {
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') getRoute(); });
+});
+
+// Swap unit on existing result
+document.getElementById('unit').addEventListener('change', () => {
+  if (document.getElementById('resultCard').classList.contains('show')) getRoute();
+});
+</script>
+</body>
+</html>
