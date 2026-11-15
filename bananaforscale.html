@@ -368,11 +368,13 @@ function showError(msg) {
 function hideError() { document.getElementById('errorMsg').classList.remove('show'); }
 
 async function geocode(q) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'bananaforscale/1.0' } });
-  const data = await res.json();
-  if (!data.length) throw new Error(`Couldn't find "${q}" — try being more specific.`);
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Location lookup is unavailable right now — try again in a moment.');
+  const { features = [] } = await res.json();
+  if (!features.length) throw new Error(`Couldn't find "${q}" — try being more specific.`);
+  const [lng, lat] = features[0].geometry.coordinates;
+  return { lat, lng };
 }
 
 async function getRoute() {

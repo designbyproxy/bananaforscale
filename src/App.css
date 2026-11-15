@@ -348,3 +348,40 @@ header {
   height: calc(100vh - 32px);
   min-height: 500px;
 }
+
+/* Route scale segments */
+.route-icon {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+.route-icon.partial { opacity: 0.55; }
+.route-icon b {
+  position: absolute;
+  top: 19px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 4px;
+  font: 700 9px/1.2 system-ui, sans-serif;
+  color: var(--cream);
+  background: var(--brown);
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.scale-legend {
+  padding: 6px 10px;
+  font: 600 12px/1.3 system-ui, sans-serif;
+  color: var(--text);
+  background: rgba(255, 251, 239, 0.95);
+  border: 2px solid var(--brown);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}

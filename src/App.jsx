@@ -39,14 +39,17 @@ function haversineMeters(lat1, lng1, lat2, lng2) {
 async function geocode(q) {
   const parts = q.split(',').map(s => s.trim())
   const last = parts[parts.length - 1].toUpperCase()
-  const params = new URLSearchParams({ q, format: 'json', limit: '1' })
-  if (US_STATES.has(last)) params.set('countrycodes', 'us')
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
-    headers: { 'User-Agent': 'bananaforscale/1.0' },
-  })
-  const data = await res.json()
-  if (!data.length) throw new Error(`Couldn't find "${q}" — try being more specific.`)
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+  const params = new URLSearchParams({ q, limit: '5' })
+  const res = await fetch(`https://photon.komoot.io/api/?${params}`)
+  if (!res.ok) throw new Error('Location lookup is unavailable right now — try again in a moment.')
+  const { features = [] } = await res.json()
+  // Photon has no country filter, so prefer a US match when the query ends in a state code
+  const match = US_STATES.has(last)
+    ? features.find(f => f.properties.countrycode === 'US') || features[0]
+    : features[0]
+  if (!match) throw new Error(`Couldn't find "${q}" — try being more specific.`)
+  const [lng, lat] = match.geometry.coordinates
+  return { lat, lng }
 }
 
 export default function App() {
@@ -213,7 +216,7 @@ export default function App() {
         </div>
 
         <div className="card map-card bento-map">
-          <MapView routeData={routeResult} routeEmoji={currentUnit.emoji} />
+          <MapView routeData={routeResult} routeUnit={currentUnit} />
         </div>
       </div>
     </div>
