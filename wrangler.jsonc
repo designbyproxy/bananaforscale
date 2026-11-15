@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bananaforscale",
+  "compatibility_date": "2026-11-01",
+  // Static assets only; no Worker script needed.
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [
+    { "pattern": "experiments.designbyproxy.com/bananaforscale*", "zone_name": "designbyproxy.com" }
+  ],
+  "workers_dev": false
+}
