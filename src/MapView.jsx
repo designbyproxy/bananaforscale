@@ -1,14 +1,35 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Polyline, Popup, ZoomControl, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 
-function BoundsFitter({ coords }) {
+const US_BOUNDS = [[24.4, -124.8], [49.4, -66.9]] // contiguous US
+
+// Fit bounds, leaving room for the floating search panel so it doesn't cover them.
+// Desktop: panel sits top-left, so pad the left. Mobile: panel spans the bottom.
+function fitAroundPanel(map, bounds, panelRef, pad) {
+  map.invalidateSize() // container may have been measured before layout settled
+  let topLeft = [pad, pad]
+  let bottomRight = [pad, pad]
+  const panel = panelRef?.current?.getBoundingClientRect()
+  const box = map.getContainer().getBoundingClientRect()
+  if (panel && panel.width > 0) {
+    if (panel.width < box.width * 0.6) topLeft = [panel.right - box.left + pad, pad]
+    else bottomRight = [pad, box.bottom - panel.top + pad]
+  }
+  map.fitBounds(bounds, { paddingTopLeft: topLeft, paddingBottomRight: bottomRight })
+}
+
+// Start on the whole lower 48; zoom to the route once there is one.
+function BoundsFitter({ coords, panelRef }) {
   const map = useMap()
   useEffect(() => {
-    if (coords && coords.length > 0) {
-      map.fitBounds(L.polyline(coords).getBounds(), { padding: [50, 50] })
-    }
-  }, [coords, map])
+    const hasRoute = coords?.length > 0
+    const bounds = hasRoute ? L.polyline(coords).getBounds() : L.latLngBounds(US_BOUNDS)
+    // Routes get extra margin so pins and icons stay clear of the edges
+    const pad = hasRoute ? 40 : 12
+    const frame = requestAnimationFrame(() => fitAroundPanel(map, bounds, panelRef, pad))
+    return () => cancelAnimationFrame(frame)
+  }, [coords, map, panelRef])
   return null
 }
 
@@ -78,8 +99,10 @@ function visibleSegmentIndices(coords, cum, bounds, segLen) {
   const total = cum[cum.length - 1]
   const lastIdx = Math.ceil(total / segLen) - 1
   const idx = new Set()
+  const s = bounds.getSouth(), n = bounds.getNorth(), w = bounds.getWest(), e = bounds.getEast()
   for (let i = 0; i < coords.length - 1; i++) {
-    if (!bounds.intersects(L.latLngBounds(coords[i], coords[i + 1]))) continue
+    const [aLat, aLng] = coords[i], [bLat, bLng] = coords[i + 1]
+    if (Math.max(aLat, bLat) < s || Math.min(aLat, bLat) > n || Math.max(aLng, bLng) < w || Math.min(aLng, bLng) > e) continue
     const from = Math.floor(cum[i] / segLen)
     const to = Math.min(lastIdx, Math.floor(cum[i + 1] / segLen))
     for (let k = from; k <= to; k++) {
@@ -182,22 +205,24 @@ function routeIcon(emoji, badge, partial) {
   return routeIconCache.get(cacheKey)
 }
 
-export default function MapView({ routeData, routeUnit }) {
+export default function MapView({ routeData, routeUnit, panelRef }) {
   const { coords, distMeters, origin, dest, fromVal, toVal } = routeData || {}
 
   return (
     <MapContainer
-      center={[45.5051, -122.675]}
-      zoom={7}
+      bounds={US_BOUNDS}
       maxZoom={MAX_ZOOM}
       preferCanvas
+      zoomControl={false}
       className="map-container"
     >
+      <ZoomControl position="bottomright" />
       <TileLayer
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         maxZoom={MAX_ZOOM}
       />
+      <BoundsFitter coords={coords} panelRef={panelRef} />
       {coords && (
         <>
           <RouteSegments coords={coords} distMeters={distMeters} unit={routeUnit} />
@@ -207,7 +232,6 @@ export default function MapView({ routeData, routeUnit }) {
           <Marker position={[dest.lat, dest.lng]} icon={pinIcon('🏁')}>
             <Popup><b>To:</b> {toVal}</Popup>
           </Marker>
-          <BoundsFitter coords={coords} />
         </>
       )}
     </MapContainer>

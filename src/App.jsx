@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import MapView from './MapView'
 
 const US_STATES = new Set([
@@ -25,7 +25,29 @@ const UNITS = [
   { meters: 8849,    label: '🏔️ Mount Everests (29,032 ft)',  name: 'Mount Everests',  emoji: '🏔️', slipPun: "You've peaked too soon — no road across that ocean." },
 ]
 
+// Funny-named towns in the lower 48, so any pair is drivable. Each one was
+// checked against Photon to resolve to the right town and state.
+const FUNNY_PLACES = [
+  'Boring, OR', 'Hell, MI', 'Truth or Consequences, NM', 'Accident, MD',
+  'Toad Suck, AR', 'Monkeys Eyebrow, KY', 'Why, AZ', 'Peculiar, MO',
+  'Cut and Shoot, TX', 'Happy, TX', 'Ding Dong, TX', 'Embarrass, MN',
+  'Bird-in-Hand, PA', 'Hot Coffee, MS', 'Two Egg, FL', 'Santa Claus, IN',
+  'Whynot, NC', 'Uncertain, TX', 'Okay, OK', 'Smackover, AR', 'Zzyzx, CA',
+  'Waterproof, LA', 'Pie Town, NM', 'Humptulips, WA', 'Burnt Corn, AL',
+  'Tightwad, MO', 'Hopeulikit, GA', 'Kill Devil Hills, NC', 'Frankenstein, MO',
+  'Normal, IL', 'Zap, ND', 'Slaughter Beach, DE', 'Gripe, AZ', 'Oddville, KY',
+  'Possum Trot, KY', 'Bowlegs, OK', 'Dinosaur, CO', 'Loveladies, NJ', 'Bigfoot, TX',
+]
+
+function randomPlacePair() {
+  const a = Math.floor(Math.random() * FUNNY_PLACES.length)
+  let b = Math.floor(Math.random() * (FUNNY_PLACES.length - 1))
+  if (b >= a) b++
+  return [FUNNY_PLACES[a], FUNNY_PLACES[b]]
+}
+
 const UNIT_META = Object.fromEntries(UNITS.map(u => [String(u.meters), u]))
+const DEFAULT_UNIT = UNITS.find(u => u.name === 'bananas')
 
 function haversineMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000
@@ -53,9 +75,16 @@ async function geocode(q) {
 }
 
 export default function App() {
-  const [from, setFrom] = useState('Portland, OR')
-  const [to, setTo] = useState('Seattle, WA')
-  const [selectedUnit, setSelectedUnit] = useState(String(UNITS[0].meters))
+  const [initialPair] = useState(randomPlacePair)
+  const [from, setFrom] = useState(initialPair[0])
+  const [to, setTo] = useState(initialPair[1])
+  const [selectedUnit, setSelectedUnit] = useState(null) // meters as string; null until picked
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [flipped, setFlipped] = useState(false)
+  const panelRef = useRef(null)
+  const fromRef = useRef(null)
+  const backBtnRef = useRef(null)
+  const aboutRef = useRef(null)
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -63,7 +92,7 @@ export default function App() {
   const [noRoute, setNoRoute] = useState(false)
 
   const displayResult = useMemo(() => {
-    if (!routeResult) return null
+    if (!routeResult || !selectedUnit) return null
     const { distMeters, durationSecs, fromVal, toVal } = routeResult
     const unit = UNIT_META[selectedUnit]
     const count = distMeters / parseFloat(selectedUnit)
@@ -75,11 +104,13 @@ export default function App() {
     const mins = totalMins % 60
     const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${totalMins} min`
     const km = (distMeters / 1000).toFixed(1)
-    const trailCount = Math.min(16, Math.max(1, Math.ceil(Math.log10(count) * 2)))
-    return { countFmt, unit, km, durationStr, fromVal, toVal, trailCount }
+    return { countFmt, unit, km, durationStr, fromVal, toVal }
   }, [routeResult, selectedUnit])
 
-  async function handleGetRoute() {
+  async function handleGetRoute(e) {
+    e?.preventDefault()
+    setPickerOpen(false)
+    if (!selectedUnit) setSelectedUnit(String(DEFAULT_UNIT.meters))
     setError('')
     setNoRoute(false)
     setStatus('')
@@ -100,6 +131,7 @@ export default function App() {
       if (routeData.code !== 'Ok' || !routeData.routes?.length) {
         setRouteResult(null)
         setNoRoute(true)
+        setFlipped(true)
         return
       }
 
@@ -109,6 +141,7 @@ export default function App() {
       if (routeData.routes[0].distance < straightLine * 0.9) {
         setRouteResult(null)
         setNoRoute(true)
+        setFlipped(true)
         return
       }
 
@@ -123,6 +156,7 @@ export default function App() {
         fromVal: from.trim(),
         toVal: to.trim(),
       })
+      setFlipped(true)
     } catch (err) {
       setError('❌ ' + err.message)
     } finally {
@@ -131,94 +165,178 @@ export default function App() {
     }
   }
 
-  function handleKeyDown(e) {
-    if (e.key === 'Enter') handleGetRoute()
+  function handleSearchAgain() {
+    setPickerOpen(false)
+    setFlipped(false)
   }
 
-  const currentUnit = UNIT_META[selectedUnit]
+  // Move focus to the side that just flipped into view
+  const didMount = useRef(false)
+  useEffect(() => {
+    if (!didMount.current) { didMount.current = true; return }
+    const t = setTimeout(() => (flipped ? backBtnRef : fromRef).current?.focus({ preventScroll: true }), 350)
+    return () => clearTimeout(t)
+  }, [flipped])
+
+  // Close the unit picker on outside click or Escape
+  useEffect(() => {
+    if (!pickerOpen) return
+    const onDown = e => { if (!panelRef.current?.contains(e.target)) setPickerOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setPickerOpen(false) }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [pickerOpen])
+
+  const currentUnit = selectedUnit ? UNIT_META[selectedUnit] : null
+  const mapUnit = currentUnit || DEFAULT_UNIT
+
+  const unitButton = (
+    <button
+      type="button"
+      className={`unit-trigger${currentUnit ? ' has-unit' : ''}`}
+      aria-haspopup="true"
+      aria-expanded={pickerOpen}
+      aria-label={currentUnit ? `Measure in ${currentUnit.name}. Change unit` : 'Measure in: choose a unit'}
+      onClick={() => setPickerOpen(o => !o)}
+    >
+      {currentUnit
+        ? <span className="unit-trigger-emoji">{currentUnit.emoji}</span>
+        : <span className="unit-trigger-label">📏 Measure in</span>}
+      <span className="unit-trigger-caret" aria-hidden="true">▾</span>
+    </button>
+  )
 
   return (
     <div className="app">
-      <div className="bento">
-        <div className="bento-controls">
+      <main className="card map-card">
+        <MapView routeData={routeResult} routeUnit={mapUnit} panelRef={panelRef} />
+
+        <div className="search-panel" ref={panelRef}>
+          <div className={`flip${flipped ? ' flipped' : ''}`}>
+            <div className="flip-inner">
+              <form
+                className="face face-front"
+                onSubmit={handleGetRoute}
+                inert={flipped ? '' : undefined}
+                aria-hidden={flipped}
+              >
+                <div className="field">
+                  <label htmlFor="from">📍 From</label>
+                  <input
+                    id="from"
+                    ref={fromRef}
+                    type="text"
+                    value={from}
+                    onChange={e => setFrom(e.target.value)}
+                    placeholder="e.g. Portland, OR"
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="to">🏁 To</label>
+                  <input
+                    id="to"
+                    type="text"
+                    value={to}
+                    onChange={e => setTo(e.target.value)}
+                    placeholder="e.g. Seattle, WA"
+                  />
+                </div>
+                <div className="action-row">
+                  {unitButton}
+                  <button type="submit" className="go-btn" disabled={loading}>
+                    {loading ? 'Scaling…' : 'GO 🍌'}
+                  </button>
+                </div>
+                {status && <div className="status" role="status">{status}</div>}
+                {error && <div className="error-msg" role="alert">{error}</div>}
+              </form>
+
+              <div
+                className={`face face-back${noRoute ? ' no-route' : ''}`}
+                inert={flipped ? undefined : ''}
+                aria-hidden={!flipped}
+              >
+                {noRoute ? (
+                  <div className="result-body">
+                    <div className="no-route-splash">🌊 {mapUnit.emoji} 🌊</div>
+                    <div className="no-route-pun">{mapUnit.slipPun}</div>
+                    <div className="no-route-hint">No driving route found — try two places on the same landmass.</div>
+                  </div>
+                ) : displayResult && (
+                  <div className="result-body" aria-live="polite">
+                    <div className="result-number">{displayResult.countFmt} {displayResult.unit.emoji}</div>
+                    <div className="result-unit">{displayResult.unit.name} long</div>
+                    <div className="result-meta">
+                      {displayResult.km} km · ~{displayResult.durationStr} drive<br />
+                      {displayResult.fromVal} → {displayResult.toVal}
+                    </div>
+                  </div>
+                )}
+                <div className="action-row">
+                  {!noRoute && unitButton}
+                  <button type="button" className="back-btn" ref={backBtnRef} onClick={handleSearchAgain}>
+                    ← Search again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {pickerOpen && (
+            <div className="unit-popover" role="dialog" aria-label="Measure in">
+              <div className="unit-grid-label">📏 Measure in</div>
+              <div className="unit-grid">
+                {UNITS.map(u => (
+                  <button
+                    type="button"
+                    key={u.meters}
+                    className={`unit-btn${selectedUnit === String(u.meters) ? ' selected' : ''}`}
+                    aria-pressed={selectedUnit === String(u.meters)}
+                    onClick={() => { setSelectedUnit(String(u.meters)); setPickerOpen(false) }}
+                  >
+                    <span className="unit-btn-emoji">{u.emoji}</span>
+                    <span className="unit-btn-name">{u.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      <footer className="site-footer">
+        <button type="button" className="footer-link" onClick={() => aboutRef.current?.showModal()}>
+          About
+        </button>
+        <span aria-hidden="true">·</span>
+        <a href="https://designbyproxy.com">Designed by Proxy</a>
+      </footer>
+
+      <dialog
+        ref={aboutRef}
+        className="about-modal"
+        aria-labelledby="about-title"
+        onClick={e => { if (e.target === aboutRef.current) aboutRef.current.close() }}
+      >
+        <div className="about-body">
           <header>
-            <div className="logo">
+            <h1 className="logo" id="about-title">
               <span className="banana-icon">🍌</span>{' '}
               <span className="logo-banana">banana</span>{' '}
               <span className="logo-for">for</span>{' '}
               <span className="logo-scale">scale</span>
-            </div>
+            </h1>
             <div className="tagline">Because meters are deeply, profoundly boring</div>
           </header>
-          <div className="card">
-            <div className="form-row">
-              <div className="field">
-                <label>📍 From</label>
-                <input
-                  type="text"
-                  value={from}
-                  onChange={e => setFrom(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="e.g. Portland, OR"
-                />
-              </div>
-              <div className="field">
-                <label>🏁 To</label>
-                <input
-                  type="text"
-                  value={to}
-                  onChange={e => setTo(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="e.g. Seattle, WA"
-                />
-              </div>
-            </div>
-            <button className="go-btn" onClick={handleGetRoute} disabled={loading}>
-              🍌 Scale It!
-            </button>
-            {status && <div className="status">{status}</div>}
-            {error && <div className="error-msg">{error}</div>}
-          </div>
-
-          <div className="card unit-card">
-            <div className="unit-grid-label">📏 Measure in</div>
-            <div className="unit-grid">
-              {UNITS.map(u => (
-                <button
-                  key={u.meters}
-                  className={`unit-btn${selectedUnit === String(u.meters) ? ' selected' : ''}`}
-                  onClick={() => setSelectedUnit(String(u.meters))}
-                >
-                  <span className="unit-btn-emoji">{u.emoji}</span>
-                  <span className="unit-btn-name">{u.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {noRoute && (
-            <div className="no-route-card">
-              <div className="no-route-splash">🌊 {currentUnit.emoji} 🌊</div>
-              <div className="no-route-pun">{currentUnit.slipPun}</div>
-              <div className="no-route-hint">No driving route found — try two places on the same landmass.</div>
-            </div>
-          )}
-
-          {displayResult && (
-            <div className="result-card">
-              <div className="result-number">{displayResult.countFmt} {displayResult.unit.emoji}</div>
-              <div className="result-unit">{displayResult.unit.name} long</div>
-              <div className="result-meta">
-                {displayResult.km} km · ~{displayResult.durationStr} drive · {displayResult.fromVal} → {displayResult.toVal}
-              </div>
-            </div>
-          )}
+          <button type="button" className="back-btn" onClick={() => aboutRef.current?.close()} autoFocus>
+            Got it 🍌
+          </button>
         </div>
-
-        <div className="card map-card bento-map">
-          <MapView routeData={routeResult} routeUnit={currentUnit} />
-        </div>
-      </div>
+      </dialog>
     </div>
   )
 }
