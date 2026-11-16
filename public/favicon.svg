@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#3B1F00"/>
+  <g transform="translate(1 4)">
+    <!-- banana body: chunky crescent from stem (top) to tip (bottom right) -->
+    <path d="M19 11 C 7 34 25 57 54 50 C 37 46 27 34 26 12 Z" fill="#FFE135"/>
+    <!-- shading along the inner curve -->
+    <path d="M26 12 C 27 34 37 46 54 50 C 41 50 26 40 22.5 12 Z" fill="#F5C100"/>
+    <!-- stem -->
+    <path d="M19.5 4 L 26 4.5 L 26 12.5 L 19 11.5 Z" fill="#B38A1E"/>
+    <!-- tip -->
+    <circle cx="53" cy="50" r="2.6" fill="#7A4E00"/>
+  </g>
+</svg>
