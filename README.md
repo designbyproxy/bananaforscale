@@ -43,8 +43,8 @@ Rigorously sourced. Mostly.
 ## Features nobody asked for
 
 - **The route is drawn to scale, literally.** Every stripe on the road is a real, measured stretch of N units, with the emoji parked in the middle. Zoom in and the stripes get shorter: a million bananas becomes 500,000, then 200,000, all the way down to 100 bananas at street level. Blue whales and up go all the way to life-size (one icon, one whale).
-- **No ant-level nonsense.** The finest scale is capped at whatever still fits on screen at the closest zoom, so nobody's browser has to render 9 million individual ants.
-- **Hilarious default destinations.** Every visit pre-fills a random pair from 39 real towns in the lower 48, including Toad Suck AR, Monkeys Eyebrow KY, Why AZ, Hot Coffee MS, Two Egg FL, Zzyzx CA, Truth or Consequences NM and, of course, Boring OR and Hell MI. Any pair is drivable. Some are a commitment.
+- **Perform-ant.** Intentionally designed so no browser has to render 9 million individual ants.
+- **Default destinations of questionable origin.** Every visit pre-fills a random pair from 39 real towns in the lower 48, including Toad Suck AR, Monkeys Eyebrow KY, Why AZ, Hot Coffee MS, Two Egg FL, Zzyzx CA, Truth or Consequences NM and, of course, Boring OR and Hell MI. Any pair is drivable. Some are a commitment.
 - **Ocean detection.** Try driving to Hawaii. Your chosen unit will have something to say about it.
 
 <p align="center">
